@@ -18,9 +18,18 @@ import {getUserById, getUserByUsername} from "./repositories/user.repository.js"
 import {registerConnection, removeConnection} from "./services/ws.service.js";
 import authRoute from "./routes/auth.route.js";
 
-runMigrations()
-// Démarrage du cron de scraping
-startCron()
+async function bootstrap() {
+    try {
+        await runMigrations()
+        console.log('🚀 DB migrations applied')
+        startCron()
+    } catch (e) {
+        console.error('❌ Failed to bootstrap application:', e)
+        process.exit(1)
+    }
+}
+
+bootstrap()
 
 const app = new Hono()
 const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app })
@@ -46,13 +55,21 @@ app.get('/ws/:username', upgradeWebSocket((c) => {
   return {
     onOpen(_, ws) {
       if(!username || username.trim().length ==0) return;
-      const user = getUserByUsername(username)
-      if (!user) {
-        ws.close(1008, 'Utilisateur introuvable')
-        return
-      }
-      registerConnection(username, ws)
-      ws.send(JSON.stringify({ type: 'connected', username }))
+      
+      (async () => {
+        try {
+          const user = await getUserByUsername(username)
+          if (!user) {
+            ws.close(1008, 'Utilisateur introuvable')
+            return
+          }
+          registerConnection(username, ws)
+          ws.send(JSON.stringify({ type: 'connected', username }))
+        } catch (e) {
+          console.error(`[ws] Erreur auth @${username}`, e)
+          ws.close(1011, 'Internal error')
+        }
+      })()
     },
     onClose() {
       removeConnection(username)

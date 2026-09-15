@@ -5,40 +5,42 @@ export interface UserFeed {
     id: number
     user_id: number
     feed_id: number
-    created_at: string
+    created_at: Date
 }
 
-export function subscribeUserToFeed(userId: number, feedId: number): UserFeed {
-    const stmt = db.prepare(`
+export async function subscribeUserToFeed(userId: number, feedId: number): Promise<UserFeed> {
+    const result = await db.query(`
     INSERT INTO user_feeds (user_id, feed_id)
-    VALUES (?, ?)
+    VALUES ($1, $2)
     ON CONFLICT(user_id, feed_id) DO NOTHING
     RETURNING *
-  `)
-    const result = stmt.get(userId, feedId) as UserFeed | undefined
-    if (result) return result
+  `, [userId, feedId])
+    
+    if (result.rows[0]) return result.rows[0] as UserFeed
 
-    return db.prepare(`
-    SELECT * FROM user_feeds WHERE user_id = ? AND feed_id = ?
-  `).get(userId, feedId) as UserFeed
+    const existing = await db.query(`
+    SELECT * FROM user_feeds WHERE user_id = $1 AND feed_id = $2
+  `, [userId, feedId])
+    return existing.rows[0] as UserFeed
 }
 
-export function unsubscribeUserFromFeed(userId: number, feedId: number): void {
-    db.prepare(`DELETE FROM user_feeds WHERE user_id = ? AND feed_id = ?`).run(userId, feedId)
+export async function unsubscribeUserFromFeed(userId: number, feedId: number): Promise<void> {
+    await db.query(`DELETE FROM user_feeds WHERE user_id = $1 AND feed_id = $2`, [userId, feedId])
 }
 
-export function getFeedsByUser(userId: number): Feed[] {
-    return db.prepare(`
+export async function getFeedsByUser(userId: number): Promise<Feed[]> {
+    const result = await db.query(`
     SELECT f.* FROM feeds f
     INNER JOIN user_feeds uf ON uf.feed_id = f.id
-    WHERE uf.user_id = ?
+    WHERE uf.user_id = $1
     ORDER BY uf.created_at DESC
-  `).all(userId) as Feed[]
+  `, [userId])
+    return result.rows as Feed[]
 }
 
-export function getUserIdsByFeed(feedId: number): number[] {
-    const rows = db.prepare(`
-    SELECT user_id FROM user_feeds WHERE feed_id = ?
-  `).all(feedId) as { user_id: number }[]
-    return rows.map(r => r.user_id)
+export async function getUserIdsByFeed(feedId: number): Promise<number[]> {
+    const result = await db.query(`
+    SELECT user_id FROM user_feeds WHERE feed_id = $1
+  `, [feedId])
+    return result.rows.map(r => r.user_id)
 }

@@ -18,14 +18,14 @@ export function removeConnection(username: string): void {
  * Notifie tous les users abonnés aux feeds mis à jour.
  * Appelé par le cron après chaque scraping.
  */
-export function notifyUpdatedFeeds(updatedFeedIds: number[]): void {
+export async function notifyUpdatedFeeds(updatedFeedIds: number[]): Promise<void> {
     if (updatedFeedIds.length === 0) return
 
     for (const feedId of updatedFeedIds) {
-        const userIds = getUserIdsByFeed(feedId)
+        const userIds = await getUserIdsByFeed(feedId)
 
         for (const userId of userIds) {
-            const user = getUserById(userId)
+            const user = await getUserById(userId)
             if (!user) continue
 
             const ws = connections.get(user.username)

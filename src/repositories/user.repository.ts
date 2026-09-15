@@ -1,42 +1,45 @@
 import { db } from '../db/index.js'
-import argon2 from 'argon2'
+import bcrypt from 'bcryptjs'
 
 export async function hashPassword(password: string): Promise<string> {
-    return argon2.hash(password)
+    return bcrypt.hash(password, 10)
 }
 
 export async function verifyPassword(hash: string, password: string): Promise<boolean> {
-    return argon2.verify(hash, password)
+    return bcrypt.compare(password, hash)
 }
 
 export interface User {
     id: number
     username: string
     password: string
-    created_at: string
+    created_at: Date
 }
 
 export async function createUser(username: string, password: string): Promise<User> {
     const hashed = await hashPassword(password)
-    const stmt = db.prepare(`
-    INSERT INTO users (username, password) VALUES (?, ?) RETURNING *
-  `)
-    return stmt.get(username, hashed) as User
+    const result = await db.query(`
+    INSERT INTO users (username, password) VALUES ($1, $2) RETURNING *
+  `, [username, hashed])
+    return result.rows[0] as User
 }
 
-export function getUserById(id: number): User | undefined {
-    return db.prepare(`SELECT * FROM users WHERE id = ?`).get(id) as User | undefined
+export async function getUserById(id: number): Promise<User | undefined> {
+    const result = await db.query(`SELECT * FROM users WHERE id = $1`, [id])
+    return result.rows[0] as User | undefined
 }
 
-export function getUserByUsername(username: string): User | undefined {
-    return db.prepare(`SELECT * FROM users WHERE username = ?`).get(username) as User | undefined
+export async function getUserByUsername(username: string): Promise<User | undefined> {
+    const result = await db.query(`SELECT * FROM users WHERE username = $1`, [username])
+    return result.rows[0] as User | undefined
 }
 
-export function usernameExists(username: string): boolean {
-    const row = db.prepare(`SELECT 1 FROM users WHERE username = ?`).get(username)
-    return row !== undefined
+export async function usernameExists(username: string): Promise<boolean> {
+    const result = await db.query(`SELECT 1 FROM users WHERE username = $1`, [username])
+    return result.rowCount !== 0
 }
 
-export function getAllUsers(): User[] {
-    return db.prepare(`SELECT * FROM users`).all() as User[]
+export async function getAllUsers(): Promise<User[]> {
+    const result = await db.query(`SELECT * FROM users`)
+    return result.rows as User[]
 }

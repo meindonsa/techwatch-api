@@ -42,14 +42,14 @@ articlesRoute.post('/', async (c) => {
 })
 
 // GET /articles/:username/articles — lister les articles d'un user
-articlesRoute.get('/:username/articles', (c) => {
+articlesRoute.get('/:username/articles', async (c) => {
     const username: string = String(c.req.param('username'))
     const limit = Number(c.req.query('limit') ?? 100)
 
-    const user = getUserByUsername(username)
+    const user = await getUserByUsername(username)
     if (!user) return c.json({ error: 'Utilisateur introuvable' }, 404)
 
-    const articles = getArticlesByUser(user.id, limit)
+    const articles = await getArticlesByUser(user.id, limit)
     return c.json(articles)
 })
 
@@ -59,10 +59,10 @@ articlesRoute.post('/:username/feed/:feedId', async (c) => {
     const feedId: number = Number(c.req.param('feedId'))
     const limit = Number(c.req.query('limit') ?? 100)
 
-    const user = getUserByUsername(username)
+    const user = await getUserByUsername(username)
     if (!user) return c.json({ error: 'Utilisateur introuvable' }, 404)
 
-    const articles = getArticlesByUserAndFeed(user.id, feedId, limit)
+    const articles = await getArticlesByUserAndFeed(user.id, feedId, limit)
     return c.json(articles)
 })
 export default articlesRoute
