@@ -7,6 +7,7 @@ export interface Feed {
     original_url: string
     name: string
     created_at: Date
+    article_count?: number
 }
 
 export interface NewFeed {
@@ -47,5 +48,15 @@ export async function deleteFeed(id: number): Promise<void> {
 
 export async function getAllFeeds(): Promise<Feed[]> {
     const result = await db.query(`SELECT * FROM feeds`)
+    return result.rows as Feed[]
+}
+
+export async function getFeedsWithCounts(): Promise<Feed[]> {
+    const result = await db.query(`
+        SELECT f.*, COUNT(a.id) as article_count 
+        FROM feeds f 
+        LEFT JOIN articles a ON f.id = a.feed_id 
+        GROUP BY f.id
+    `)
     return result.rows as Feed[]
 }

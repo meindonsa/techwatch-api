@@ -30,9 +30,12 @@ export async function unsubscribeUserFromFeed(userId: number, feedId: number): P
 
 export async function getFeedsByUser(userId: number): Promise<Feed[]> {
     const result = await db.query(`
-    SELECT f.* FROM feeds f
+    SELECT f.*, COUNT(a.id) as article_count 
+    FROM feeds f
     INNER JOIN user_feeds uf ON uf.feed_id = f.id
+    LEFT JOIN articles a ON a.feed_id = f.id
     WHERE uf.user_id = $1
+    GROUP BY f.id, uf.created_at
     ORDER BY uf.created_at DESC
   `, [userId])
     return result.rows as Feed[]
