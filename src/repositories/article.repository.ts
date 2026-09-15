@@ -10,6 +10,7 @@ export interface Article {
     image: string | null
     feed_id: number
     fetched_at: Date
+    source_name?: string
 }
 
 export interface NewArticle {
@@ -49,21 +50,23 @@ export async function insertArticles(articles: NewArticle[]): Promise<number> {
     }
 }
 
-export async function getArticleById(id: number): Promise<any | undefined> {
+export async function getArticleById(id: number): Promise<Article | undefined> {
     const result = await db.query(`
         SELECT a.*, f.name as source_name 
         FROM articles a 
         JOIN feeds f ON a.feed_id = f.id 
         WHERE a.id = $1
     `, [id])
-    return result.rows[0] as any | undefined
+    return result.rows[0] as Article | undefined
 }
 
 export async function getArticlesByFeed(feedId: number, limit = 50): Promise<Article[]> {
     const result = await db.query(`
-        SELECT * FROM articles
-        WHERE feed_id = $1
-        ORDER BY pub_date DESC
+        SELECT a.*, f.name as source_name 
+        FROM articles a 
+        JOIN feeds f ON a.feed_id = f.id 
+        WHERE a.feed_id = $1
+        ORDER BY a.pub_date DESC
         LIMIT $2
     `, [feedId, limit])
     return result.rows as Article[]
@@ -71,8 +74,10 @@ export async function getArticlesByFeed(feedId: number, limit = 50): Promise<Art
 
 export async function getArticlesByUser(userId: number, limit = 100): Promise<Article[]> {
     const result = await db.query(`
-        SELECT a.* FROM articles a
-                            INNER JOIN user_feeds uf ON uf.feed_id = a.feed_id
+        SELECT a.*, f.name as source_name 
+        FROM articles a 
+        JOIN feeds f ON a.feed_id = f.id
+        INNER JOIN user_feeds uf ON uf.feed_id = a.feed_id
         WHERE uf.user_id = $1
         ORDER BY a.pub_date DESC
         LIMIT $2
@@ -82,8 +87,10 @@ export async function getArticlesByUser(userId: number, limit = 100): Promise<Ar
 
 export async function getArticlesByUserAndFeed(userId: number, feedId:number, limit = 100): Promise<Article[]> {
     const result = await db.query(`
-        SELECT a.* FROM articles a
-                            INNER JOIN user_feeds uf ON uf.feed_id = a.feed_id
+        SELECT a.*, f.name as source_name 
+        FROM articles a 
+        JOIN feeds f ON a.feed_id = f.id
+        INNER JOIN user_feeds uf ON uf.feed_id = a.feed_id
         WHERE uf.user_id = $1 AND uf.feed_id = $2
         ORDER BY a.pub_date DESC
         LIMIT $3
