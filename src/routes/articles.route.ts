@@ -3,7 +3,8 @@ import {getArticles} from "../services/article.service.js";
 import {urlArraySchema, urlSchema} from "../validators/feed.validator.js";
 import {FeedError} from "../utils/errors.js";
 import {getUserByUsername} from "../repositories/user.repository.js";
-import {getArticlesByUser, getArticlesByUserAndFeed} from "../repositories/article.repository.js";
+import { getArticlesByUser, getArticlesByUserAndFeed, getArticleById } from "../repositories/article.repository.js";
+
 import articleRoute from "./article.route.js";
 
 const articlesRoute = new Hono()
@@ -41,7 +42,16 @@ articlesRoute.post('/', async (c) => {
     })
 })
 
+// GET /articles/:id — récupérer un article unique
+articlesRoute.get('/:id', async (c) => {
+    const id = Number(c.req.param('id'))
+    const article = await getArticleById(id)
+    if (!article) return c.json({ error: 'Article introuvable' }, 404)
+    return c.json(article)
+})
+
 // GET /articles/:username/articles — lister les articles d'un user
+
 articlesRoute.get('/:username/articles', async (c) => {
     const username: string = String(c.req.param('username'))
     const limit = Number(c.req.query('limit') ?? 100)
