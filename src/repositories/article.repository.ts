@@ -49,6 +49,16 @@ export async function insertArticles(articles: NewArticle[]): Promise<number> {
     }
 }
 
+export async function getArticleById(id: number): Promise<any | undefined> {
+    const result = await db.query(`
+        SELECT a.*, f.name as source_name 
+        FROM articles a 
+        JOIN feeds f ON a.feed_id = f.id 
+        WHERE a.id = $1
+    `, [id])
+    return result.rows[0] as any | undefined
+}
+
 export async function getArticlesByFeed(feedId: number, limit = 50): Promise<Article[]> {
     const result = await db.query(`
         SELECT * FROM articles
