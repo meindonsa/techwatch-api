@@ -43,3 +43,12 @@ export async function getAllUsers(): Promise<User[]> {
     const result = await db.query(`SELECT * FROM users`)
     return result.rows as User[]
 }
+
+export async function updatePassword(id: number, password: string): Promise<void> {
+    const hashed = await hashPassword(password)
+    await db.query(`UPDATE users SET password = $1 WHERE id = $2`, [hashed, id])
+}
+
+export async function deleteUser(id: number): Promise<void> {
+    await db.query(`DELETE FROM users WHERE id = $1`, [id])
+}
