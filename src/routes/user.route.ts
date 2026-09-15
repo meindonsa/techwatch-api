@@ -35,6 +35,19 @@ userRoute.patch('/me/password', async (c) => {
     }
 })
 
+// DELETE /users/me — supprimer son propre compte
+userRoute.delete('/me', async (c) => {
+    const userId = c.get('userId')
+    if (!userId) return c.json({ error: 'Utilisateur non authentifié' }, 401)
+
+    try {
+        await deleteUser(userId)
+        return c.json({ message: 'Compte supprimé avec succès' })
+    } catch (e) {
+        return c.json({ error: 'Erreur lors de la suppression du compte' }, 500)
+    }
+})
+
 // GET /users/check-username?username=xxx ✅
 userRoute.get('/check-username', async (c) => {
     const username = c.req.query('username')
