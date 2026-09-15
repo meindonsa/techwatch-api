@@ -8,9 +8,12 @@ L'API permet de transformer n'importe quelle URL de site web en un flux de donn�
 
 ## ✨ Fonctionnalités Clés
 
-### 🔐 Gestion des Utilisateurs & Authentification
-- **Inscription et Connexion** : Système d'authentification sécurisé avec hachage de mots de passe.
-- **Sessions JWT** : Accès sécurisé aux routes protégées via des jetons JSON Web Tokens.
+### 🔐 Gestion des Utilisateurs & Sécurité Renforcée
+- **Inscription et Connexion** : Système d'authentification sécurisé avec hachage de mots de passe via `bcryptjs`.
+- **Système de Double Token (JWT)** : 
+    - **Access Token** : Courte durée pour sécuriser les requêtes.
+    - **Refresh Token** : Longue durée, stocké en base de données, permettant de renouveler la session sans reconnexion.
+- **Gestion des Sessions** : Possibilité de révoquer des sessions via le logout.
 
 ### 📡 Gestion des Flux (Feeds)
 - **Détection Intelligente** : Capacité à analyser une URL de site web pour y trouver automatiquement le flux RSS ou Atom associé.
@@ -39,7 +42,9 @@ L'API permet de transformer n'importe quelle URL de site web en un flux de donn�
 | Catégorie | Endpoint | Description |
 | :--- | :--- | :--- |
 | **Auth** | `POST /auth/register` | Créer un compte utilisateur |
-| | `POST /auth/login` | S'authentifier et obtenir un token |
+| | `POST /auth/login` | S'authentifier $\rightarrow$ Retourne `accessToken` & `refreshToken` |
+| | `POST /auth/refresh` | Renouveler l' `accessToken` via le `refreshToken` |
+| | `POST /auth/logout` | Invalider le `refreshToken` et déconnecter la session |
 | **Users** | `GET /users/check-username` | Vérifier la disponibilité d'un pseudo |
 | | `GET /users/:id/articles` | Lister les articles d'un utilisateur |
 | **Feeds** | `POST /feeds/:username` | Ajouter un site et s'y abonner (Détection auto) |
@@ -55,5 +60,5 @@ L'API permet de transformer n'importe quelle URL de site web en un flux de donn�
 
 1. **Utilisateur** $\rightarrow$ Ajoute une URL de site.
 2. **API** $\rightarrow$ Détecte le flux RSS $\rightarrow$ L'enregistre $\rightarrow$ Télécharge les premiers articles.
-3. **Cron Service** $\rightarrow$ Vérifie périodiquement tous les flux $\rightarrow$ Insère les nouveaux articles.
+3. **Cron Service** $\rightarrow$ Vérifie périodiquement tous les flux $\rightarrow$ Insère les nouveaux articles $\rightarrow$ Nettoie les tokens expirés.
 4. **WS Service** $\rightarrow$ Identifie les abonnés $\rightarrow$ Envoie une notification WebSocket.
