@@ -3,6 +3,7 @@ import { insertArticles } from '../repositories/article.repository.js'
 import { getArticles } from './article.service.js'
 import { notifyUpdatedFeeds } from './ws.service.js'
 import { FeedError } from '../utils/errors.js'
+import { cleanupExpiredTokens } from '../repositories/refresh-token.repository.js'
 
 const CRON_INTERVAL =Number(process.env.CRON_INTERVAL_MS ?? 15 * 60 * 1000)
 
@@ -11,7 +12,7 @@ const CRON_INTERVAL =Number(process.env.CRON_INTERVAL_MS ?? 15 * 60 * 1000)
  * Retourne la liste des feedId ayant eu de nouveaux articles.
  */
 export async function scrapeAllFeeds(): Promise<number[]> {
-    const feeds = getAllFeeds()
+    const feeds = await getAllFeeds()
     const updatedFeedIds: number[] = []
 
     await Promise.allSettled(
@@ -19,7 +20,7 @@ export async function scrapeAllFeeds(): Promise<number[]> {
             try {
                 const feedData = await getArticles(feed.feed_url)
 
-                const inserted = insertArticles(
+                const inserted = await insertArticles(
                     feedData.articles.map((a) => ({
                         feed_id: feed.id,
                         title: a.title,
@@ -59,7 +60,8 @@ export function startCron(): void {
 
     cronHandle = setInterval(async () => {
         const updatedFeedIds = await scrapeAllFeeds()
-        notifyUpdatedFeeds(updatedFeedIds)
+        await notifyUpdatedFeeds(updatedFeedIds)
+        await cleanupExpiredTokens()
     }, CRON_INTERVAL)
 }
 

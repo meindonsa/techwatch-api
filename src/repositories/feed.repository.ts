@@ -6,7 +6,7 @@ export interface Feed {
     feed_url: string
     original_url: string
     name: string
-    created_at: string
+    created_at: Date
 }
 
 export interface NewFeed {
@@ -16,32 +16,36 @@ export interface NewFeed {
     name: string
 }
 
-export function upsertFeed(data: NewFeed): Feed {
-    db.prepare(`
+export async function upsertFeed(data: NewFeed): Promise<Feed> {
+    await db.query(`
         INSERT INTO feeds (type, feed_url, original_url, name)
-        VALUES (@type, @feed_url, @original_url, @name)
+        VALUES ($1, $2, $3, $4)
         ON CONFLICT(feed_url) DO UPDATE SET
-                                            name         = COALESCE(excluded.name, feeds.name),
-                                            original_url = excluded.original_url,
-                                            type         = excluded.type
-    `).run(data)
+                                            name         = COALESCE(EXCLUDED.name, feeds.name),
+                                            original_url = EXCLUDED.original_url,
+                                            type         = EXCLUDED.type
+    `, [data.type, data.feed_url, data.original_url, data.name])
 
-    return db.prepare(`SELECT * FROM feeds WHERE feed_url = ?`).get(data.feed_url) as Feed
+    const result = await db.query(`SELECT * FROM feeds WHERE feed_url = $1`, [data.feed_url])
+    return result.rows[0] as Feed
 }
 
-export function getFeedById(id: number): Feed | undefined {
-    return db.prepare(`SELECT * FROM feeds WHERE id = ?`).get(id) as Feed | undefined
+export async function getFeedById(id: number): Promise<Feed | undefined> {
+    const result = await db.query(`SELECT * FROM feeds WHERE id = $1`, [id])
+    return result.rows[0] as Feed | undefined
 }
 
-export function updateFeedName(id: number, name: string): Feed {
-    db.prepare(`UPDATE feeds SET name = ? WHERE id = ?`).run(name, id)
-    return db.prepare(`SELECT * FROM feeds WHERE id = ?`).get(id) as Feed
+export async function updateFeedName(id: number, name: string): Promise<Feed> {
+    await db.query(`UPDATE feeds SET name = $1 WHERE id = $2`, [name, id])
+    const result = await db.query(`SELECT * FROM feeds WHERE id = $1`, [id])
+    return result.rows[0] as Feed
 }
 
-export function deleteFeed(id: number): void {
-    db.prepare(`DELETE FROM feeds WHERE id = ?`).run(id)
+export async function deleteFeed(id: number): Promise<void> {
+    await db.query(`DELETE FROM feeds WHERE id = $1`, [id])
 }
 
-export function getAllFeeds(): Feed[] {
-    return db.prepare(`SELECT * FROM feeds`).all() as Feed[]
+export async function getAllFeeds(): Promise<Feed[]> {
+    const result = await db.query(`SELECT * FROM feeds`)
+    return result.rows as Feed[]
 }

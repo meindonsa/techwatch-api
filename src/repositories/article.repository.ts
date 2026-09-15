@@ -4,12 +4,12 @@ export interface Article {
     id: number
     title: string
     link: string
-    pub_date: string | null
+    pub_date: Date | null
     summary: string | null
     author: string | null
     image: string | null
     feed_id: number
-    fetched_at: string
+    fetched_at: Date
 }
 
 export interface NewArticle {
@@ -26,49 +26,57 @@ export interface NewArticle {
  * Insère les articles en ignorant les doublons (UNIQUE sur link).
  * Retourne le nombre de nouvelles lignes insérées.
  */
-export function insertArticles(articles: NewArticle[]): number {
-    const stmt = db.prepare(`
-        INSERT OR IGNORE INTO articles (title, link, pub_date, summary, author, image, feed_id)
-        VALUES (@title, @link, @pub_date, @summary, @author, @image, @feed_id)
-    `)
-
-    const insertMany = db.transaction((items: NewArticle[]) => {
+export async function insertArticles(articles: NewArticle[]): Promise<number> {
+    const client = await db.connect()
+    try {
+        await client.query('BEGIN')
         let inserted = 0
-        for (const item of items) {
-            const info = stmt.run(item)
-            inserted += info.changes
+        for (const item of articles) {
+            const result = await client.query(`
+                INSERT INTO articles (title, link, pub_date, summary, author, image, feed_id)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                ON CONFLICT(link) DO NOTHING
+            `, [item.title, item.link, item.pub_date, item.summary, item.author, item.image, item.feed_id])
+            inserted += result.rowCount
         }
+        await client.query('COMMIT')
         return inserted
-    })
-
-    return insertMany(articles)
+    } catch (e) {
+        await client.query('ROLLBACK')
+        throw e
+    } finally {
+        client.release()
+    }
 }
 
-export function getArticlesByFeed(feedId: number, limit = 50): Article[] {
-    return db.prepare(`
+export async function getArticlesByFeed(feedId: number, limit = 50): Promise<Article[]> {
+    const result = await db.query(`
         SELECT * FROM articles
-        WHERE feed_id = ?
+        WHERE feed_id = $1
         ORDER BY pub_date DESC
-        LIMIT ?
-    `).all(feedId, limit) as Article[]
+        LIMIT $2
+    `, [feedId, limit])
+    return result.rows as Article[]
 }
 
-export function getArticlesByUser(userId: number, limit = 100): Article[] {
-    return db.prepare(`
+export async function getArticlesByUser(userId: number, limit = 100): Promise<Article[]> {
+    const result = await db.query(`
         SELECT a.* FROM articles a
                             INNER JOIN user_feeds uf ON uf.feed_id = a.feed_id
-        WHERE uf.user_id = ?
+        WHERE uf.user_id = $1
         ORDER BY a.pub_date DESC
-        LIMIT ?
-    `).all(userId, limit) as Article[]
+        LIMIT $2
+    `, [userId, limit])
+    return result.rows as Article[]
 }
 
-export function getArticlesByUserAndFeed(userId: number, feedId:number, limit = 100): Article[] {
-    return db.prepare(`
+export async function getArticlesByUserAndFeed(userId: number, feedId:number, limit = 100): Promise<Article[]> {
+    const result = await db.query(`
         SELECT a.* FROM articles a
                             INNER JOIN user_feeds uf ON uf.feed_id = a.feed_id
-        WHERE uf.user_id = ? AND uf.feed_id = ?
+        WHERE uf.user_id = $1 AND uf.feed_id = $2
         ORDER BY a.pub_date DESC
-        LIMIT ?
-    `).all(userId, feedId, limit) as Article[]
+        LIMIT $3
+    `, [userId, feedId, limit])
+    return result.rows as Article[]
 }

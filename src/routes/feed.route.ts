@@ -24,7 +24,7 @@ feedRoute.post('/:username', async (c) => {
         return c.json({ error: parsed.error.issues[0].message }, 400)
     }
 
-    const user = getUserByUsername(username)
+    const user = await getUserByUsername(username)
     if (!user) return c.json({ error: 'Utilisateur introuvable' }, 404)
 
     // 1. Détecter l'URL du feed RSS à partir de l'URL du site
@@ -36,16 +36,16 @@ feedRoute.post('/:username', async (c) => {
     try {
         const feedData = await getArticles(detection.feedUrl)
 
-        const feed = upsertFeed({
+        const feed = await upsertFeed({
             type: detection.type === 'atom' ? 'atom' : 'rss',
             feed_url: detection.feedUrl,
             original_url: parsed.data.url,
             name: feedData.title,
         })
 
-        const subscription = subscribeUserToFeed(user.id, feed.id)
+        const subscription = await subscribeUserToFeed(user.id, feed.id)
 
-        const inserted = insertArticles(feedData.articles.map((a) => ({
+        const inserted = await insertArticles(feedData.articles.map((a) => ({
             feed_id: feed.id,
             title: a.title,
             link: a.link,
@@ -66,29 +66,29 @@ feedRoute.post('/:username', async (c) => {
 })
 
 // DELETE /feeds/:feedId/users/:username ✅
-feedRoute.delete('/:feedId/users/:username', (c) => {
+feedRoute.delete('/:feedId/users/:username', async (c) => {
     const feedId: number = Number(c.req.param('feedId'))
     const username: string = String(c.req.param('username'))
 
-    const user = getUserByUsername(username)
+    const user = await getUserByUsername(username)
 
     if (!user) return c.json({ error: FeedErrors.USER_NOT_FOUND.message }, 404)
 
-    const feed = getFeedById(feedId)
+    const feed = await getFeedById(feedId)
     if (!feed) return c.json({ error: FeedErrors.FEED_NOT_FOUND.message }, 404)
 
-    unsubscribeUserFromFeed(user.id, feedId)
+    await unsubscribeUserFromFeed(user.id, feedId)
     return c.json({ message: FeedErrors.UNSUBSCRIBE_SUCCESS.message })
 })
 
 // GET /feeds/by-username/:username — récupérer les feeds via le username ✅
-feedRoute.get('/by-username/:username', (c) => {
+feedRoute.get('/by-username/:username', async (c) => {
     const username = c.req.param('username')
-    const user = getUserByUsername(username)
+    const user = await getUserByUsername(username)
 
     if (!user) return c.json({ error: 'Utilisateur introuvable' }, 404)
 
-    const feeds = getFeedsByUser(user.id)
+    const feeds = await getFeedsByUser(user.id)
     return c.json(feeds)
 })
 

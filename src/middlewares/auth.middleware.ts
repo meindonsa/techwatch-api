@@ -22,6 +22,11 @@ export const authMiddleware = createMiddleware(async (c, next) => {
 
     try {
         const payload = await verifyToken(token)
+        
+        if (payload.type !== 'access') {
+            return c.json({ error: 'Token invalide' }, 401)
+        }
+
         c.set('userId', payload.userId)
         c.set('username', payload.username)
         await next()
