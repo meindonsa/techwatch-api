@@ -72,28 +72,48 @@ export async function getArticlesByFeed(feedId: number, limit = 50): Promise<Art
     return result.rows as Article[]
 }
 
-export async function getArticlesByUser(userId: number, limit = 100): Promise<Article[]> {
+export async function getArticlesByUser(userId: number, limit = 100, offset = 0, searchKey: string | null = null): Promise<Article[]> {
     const result = await db.query(`
         SELECT a.*, f.name as source_name 
         FROM articles a 
         JOIN feeds f ON a.feed_id = f.id
         INNER JOIN user_feeds uf ON uf.feed_id = a.feed_id
-        WHERE uf.user_id = $1
+        WHERE uf.user_id = $1 ${searchKey ? 'AND (a.title ILIKE $2 OR a.summary ILIKE $2)' : ''}
         ORDER BY a.pub_date DESC
-        LIMIT $2
-    `, [userId, limit])
+        LIMIT $${searchKey ? 3 : 2} OFFSET $${searchKey ? 4 : 3}
+    `, searchKey ? [userId, `%${searchKey}%`, limit, offset] : [userId, limit, offset])
     return result.rows as Article[]
 }
 
-export async function getArticlesByUserAndFeed(userId: number, feedId:number, limit = 100): Promise<Article[]> {
+export async function countArticlesByUser(userId: number, searchKey: string | null = null): Promise<number> {
+    const result = await db.query(`
+        SELECT COUNT(*) 
+        FROM articles a 
+        INNER JOIN user_feeds uf ON uf.feed_id = a.feed_id
+        WHERE uf.user_id = $1 ${searchKey ? 'AND (a.title ILIKE $2 OR a.summary ILIKE $2)' : ''}
+    `, searchKey ? [userId, `%${searchKey}%`] : [userId])
+    return parseInt(result.rows[0].count)
+}
+
+export async function getArticlesByUserAndFeed(userId: number, feedId: number, limit = 100, offset = 0, searchKey: string | null = null): Promise<Article[]> {
     const result = await db.query(`
         SELECT a.*, f.name as source_name 
         FROM articles a 
         JOIN feeds f ON a.feed_id = f.id
         INNER JOIN user_feeds uf ON uf.feed_id = a.feed_id
-        WHERE uf.user_id = $1 AND uf.feed_id = $2
+        WHERE uf.user_id = $1 AND uf.feed_id = $2 ${searchKey ? 'AND (a.title ILIKE $3 OR a.summary ILIKE $3)' : ''}
         ORDER BY a.pub_date DESC
-        LIMIT $3
-    `, [userId, feedId, limit])
+        LIMIT $${searchKey ? 4 : 3} OFFSET $${searchKey ? 5 : 4}
+    `, searchKey ? [userId, feedId, `%${searchKey}%`, limit, offset] : [userId, feedId, limit, offset])
     return result.rows as Article[]
+}
+
+export async function countArticlesByUserAndFeed(userId: number, feedId: number, searchKey: string | null = null): Promise<number> {
+    const result = await db.query(`
+        SELECT COUNT(*) 
+        FROM articles a 
+        INNER JOIN user_feeds uf ON uf.feed_id = a.feed_id
+        WHERE uf.user_id = $1 AND uf.feed_id = $2 ${searchKey ? 'AND (a.title ILIKE $3 OR a.summary ILIKE $3)' : ''}
+    `, searchKey ? [userId, feedId, `%${searchKey}%`] : [userId, feedId])
+    return parseInt(result.rows[0].count)
 }
