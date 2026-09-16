@@ -14,9 +14,15 @@ import {createFeed, nameSchema} from "../validators/feed.validator.js";
 
 const feedRoute = new Hono()
 
-// POST /feeds/:userId
+// POST /feeds/:username
 feedRoute.post('/:username', async (c) => {
+    const authUsername = c.get('username')
     const username: string = c.req.param('username');
+
+    if (authUsername !== username) {
+        return c.json({ error: 'Accès refusé' }, 403)
+    }
+
     const body = await c.req.json()
     const parsed = createFeed.safeParse(body)
 
@@ -27,11 +33,9 @@ feedRoute.post('/:username', async (c) => {
     const user = await getUserByUsername(username)
     if (!user) return c.json({ error: 'Utilisateur introuvable' }, 404)
 
-    // 1. Détecter l'URL du feed RSS à partir de l'URL du site
     const detection: SourceDetectionResult = await detectSource(parsed.data.url)
     if (!detection.feedUrl)
         return c.json({ error: 'Aucun flux RSS détecté sur ce site', code: 'NO_FEED' }, 422)
-
 
     try {
         const feedData = await getArticles(detection.feedUrl)
@@ -65,27 +69,35 @@ feedRoute.post('/:username', async (c) => {
     }
 })
 
-// DELETE /feeds/:feedId/users/:username ✅
+// DELETE /feeds/:feedId/users/:username
 feedRoute.delete('/:feedId/users/:username', async (c) => {
-    const feedId: number = Number(c.req.param('feedId'))
+    const authUsername = c.get('username')
     const username: string = String(c.req.param('username'))
 
-    const user = await getUserByUsername(username)
+    if (authUsername !== username) {
+        return c.json({ error: 'Accès refusé' }, 403)
+    }
 
+    const user = await getUserByUsername(username)
     if (!user) return c.json({ error: FeedErrors.USER_NOT_FOUND.message }, 404)
 
-    const feed = await getFeedById(feedId)
+    const feed = await getFeedById(Number(c.req.param('feedId')))
     if (!feed) return c.json({ error: FeedErrors.FEED_NOT_FOUND.message }, 404)
 
-    await unsubscribeUserFromFeed(user.id, feedId)
+    await unsubscribeUserFromFeed(user.id, feed.id)
     return c.json({ message: FeedErrors.UNSUBSCRIBE_SUCCESS.message })
 })
 
-// GET /feeds/by-username/:username — récupérer les feeds via le username ✅
+// GET /feeds/by-username/:username
 feedRoute.get('/by-username/:username', async (c) => {
+    const authUsername = c.get('username')
     const username = c.req.param('username')
-    const user = await getUserByUsername(username)
 
+    if (authUsername !== username) {
+        return c.json({ error: 'Accès refusé' }, 403)
+    }
+
+    const user = await getUserByUsername(username)
     if (!user) return c.json({ error: 'Utilisateur introuvable' }, 404)
 
     const feeds = await getFeedsByUser(user.id)
