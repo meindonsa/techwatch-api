@@ -6,6 +6,7 @@ import articleRoute from "./routes/article.route.js";
 import articlesRoute from "./routes/articles.route.js";
 import {authMiddleware} from "./middlewares/auth.middleware.js";
 import {rateLimitMiddleware} from "./middlewares/rate-limit.middleware.js";
+import {ssrfMiddleware} from "./middlewares/ssrf.middleware.js";
 import {swaggerUI} from "@hono/swagger-ui";
 import {openApiDoc} from "./openapi.js";
 import { cors } from "hono/cors";
@@ -36,7 +37,7 @@ const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app })
 
 app.use('*', cors())
 
-//app.use('*', ssrfMiddleware)
+app.use('*', ssrfMiddleware)
 app.use('/detect/*', authMiddleware)
 app.use('/articles/*', authMiddleware)
 app.use('/users/*', authMiddleware)

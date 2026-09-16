@@ -43,7 +43,13 @@ articlesRoute.post('/', async (c) => {
 
 // GET /articles/:username/articles
 articlesRoute.get('/:username/articles', async (c) => {
+    const authUsername = c.get('username')
     const username: string = String(c.req.param('username'))
+
+    if (authUsername !== username) {
+        return c.json({ error: 'Accès refusé' }, 403)
+    }
+
     const size = Number(c.req.query('size') ?? 100)
     const index = Number(c.req.query('index') ?? 0)
     const searchKey = c.req.query('searchKey') || null
@@ -65,7 +71,13 @@ articlesRoute.get('/:username/articles', async (c) => {
 
 // GET /articles/:username/feed/:feedId
 articlesRoute.get('/:username/feed/:feedId', async (c) => {
+    const authUsername = c.get('username')
     const username: string = String(c.req.param('username'))
+
+    if (authUsername !== username) {
+        return c.json({ error: 'Accès refusé' }, 403)
+    }
+
     const feedId: number = Number(c.req.param('feedId'))
     const size = Number(c.req.query('size') ?? 100)
     const index = Number(c.req.query('index') ?? 0)

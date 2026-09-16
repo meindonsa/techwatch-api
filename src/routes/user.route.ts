@@ -1,12 +1,12 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { createUser, getUserById, getUserByUsername, usernameExists, updatePassword } from '../repositories/user.repository.js'
+import { createUser, getUserById, getUserByUsername, usernameExists, updatePassword, deleteUser } from '../repositories/user.repository.js'
 import { getArticlesByUser } from '../repositories/article.repository.js'
 import {createUserSchema} from "../validators/feed.validator.js";
 
 const userRoute = new Hono()
 
-// GET /users/me — récupérer son propre profil ✅
+// GET /users/me — récupérer son propre profil
 userRoute.get('/me', async (c) => {
     const userId = c.get('userId')
     if (!userId) return c.json({ error: 'Utilisateur non authentifié' }, 401)
@@ -48,7 +48,7 @@ userRoute.delete('/me', async (c) => {
     }
 })
 
-// GET /users/check-username?username=xxx ✅
+// GET /users/check-username?username=xxx
 userRoute.get('/check-username', async (c) => {
     const username = c.req.query('username')
 
@@ -62,7 +62,13 @@ userRoute.get('/check-username', async (c) => {
 
 // GET /users/:id/articles — lister les articles d'un user
 userRoute.get('/:id/articles', async (c) => {
+    const authUserId = c.get('userId')
     const userId = Number(c.req.param('id'))
+
+    if (authUserId !== userId) {
+        return c.json({ error: 'Accès refusé' }, 403)
+    }
+
     const limit = Number(c.req.query('limit') ?? 100)
 
     const user = await getUserById(userId)
