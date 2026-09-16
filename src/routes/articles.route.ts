@@ -3,7 +3,7 @@ import {getArticles} from "../services/article.service.js";
 import {urlArraySchema, urlSchema} from "../validators/feed.validator.js";
 import {FeedError} from "../utils/errors.js";
 import {getUserByUsername} from "../repositories/user.repository.js";
-import {getArticlesByUser, getArticlesByUserAndFeed, getArticleById} from "../repositories/article.repository.js";
+import {getArticlesByUser, getArticlesByUserAndFeed, getArticleById, countArticlesByUser, countArticlesByUserAndFeed} from "../repositories/article.repository.js";
 import articleRoute from "./article.route.js";
 
 const articlesRoute = new Hono()
@@ -41,33 +41,52 @@ articlesRoute.post('/', async (c) => {
     })
 })
 
-// IMPORTANT: Routes spécifiques AVANT les routes génériques (/:id)
 // GET /articles/:username/articles
 articlesRoute.get('/:username/articles', async (c) => {
     const username: string = String(c.req.param('username'))
-    const limit = Number(c.req.query('limit') ?? 100)
+    const size = Number(c.req.query('size') ?? 100)
+    const index = Number(c.req.query('index') ?? 0)
+    const searchKey = c.req.query('searchKey') || null
 
     const user = await getUserByUsername(username)
     if (!user) return c.json({ error: 'Utilisateur introuvable' }, 404)
 
-    const articles = await getArticlesByUser(user.id, limit)
-    return c.json(articles)
+    const offset = index * size
+    const articles = await getArticlesByUser(user.id, size, offset, searchKey)
+    const total = await countArticlesByUser(user.id, searchKey)
+
+    return c.json({
+        total,
+        size,
+        index,
+        objects: articles
+    })
 })
 
 // GET /articles/:username/feed/:feedId
-articlesRoute.post('/:username/feed/:feedId', async (c) => {
+articlesRoute.get('/:username/feed/:feedId', async (c) => {
     const username: string = String(c.req.param('username'))
     const feedId: number = Number(c.req.param('feedId'))
-    const limit = Number(c.req.query('limit') ?? 100)
+    const size = Number(c.req.query('size') ?? 100)
+    const index = Number(c.req.query('index') ?? 0)
+    const searchKey = c.req.query('searchKey') || null
 
     const user = await getUserByUsername(username)
     if (!user) return c.json({ error: 'Utilisateur introuvable' }, 404)
 
-    const articles = await getArticlesByUserAndFeed(user.id, feedId, limit)
-    return c.json(articles)
+    const offset = index * size
+    const articles = await getArticlesByUserAndFeed(user.id, feedId, size, offset, searchKey)
+    const total = await countArticlesByUserAndFeed(user.id, feedId, searchKey)
+
+    return c.json({
+        total,
+        size,
+        index,
+        objects: articles
+    })
 })
 
-// GET /articles/:id — Récupérer un article unique (Générique, donc en dernier)
+// GET /articles/:id
 articlesRoute.get('/:id', async (c) => {
     const id = Number(c.req.param('id'))
     if (isNaN(id)) return c.json({ error: 'ID invalide' }, 400)
