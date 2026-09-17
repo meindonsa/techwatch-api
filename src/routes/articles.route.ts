@@ -6,7 +6,12 @@ import {getUserByUsername} from "../repositories/user.repository.js";
 import {getArticlesByUser, getArticlesByUserAndFeed, getArticleById, countArticlesByUser, countArticlesByUserAndFeed} from "../repositories/article.repository.js";
 import articleRoute from "./article.route.js";
 
-const articlesRoute = new Hono()
+type AuthVariables = {
+    userId: number
+    username: string
+}
+
+const articlesRoute = new Hono<{ Variables: AuthVariables }>()
 
 articlesRoute.post('/', async (c) => {
     const body = await c.req.json()
@@ -43,7 +48,7 @@ articlesRoute.post('/', async (c) => {
 
 // GET /articles/:username/articles
 articlesRoute.get('/:username/articles', async (c) => {
-    const authUsername = c.get('username')
+    const authUsername = c.get('username') as string
     const username: string = String(c.req.param('username'))
 
     if (authUsername !== username) {
@@ -71,7 +76,7 @@ articlesRoute.get('/:username/articles', async (c) => {
 
 // GET /articles/:username/feed/:feedId
 articlesRoute.get('/:username/feed/:feedId', async (c) => {
-    const authUsername = c.get('username')
+    const authUsername = c.get('username') as string
     const username: string = String(c.req.param('username'))
 
     if (authUsername !== username) {

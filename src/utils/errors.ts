@@ -1,6 +1,6 @@
 export class FeedError extends Error {
     constructor(
-        public code: 'TIMEOUT' | 'NOT_FOUND' | 'INVALID_URL' | 'PARSE_ERROR' | 'UNREACHABLE' | 'USER_NOT_FOUND' | 'SUCCESS',
+        public code: 'TIMEOUT' | 'NOT_FOUND' | 'INVALID_URL' | 'PARSE_ERROR' | 'UNREACHABLE' | 'USER_NOT_FOUND' | 'SUCCESS' | 'TOO_LARGE',
         message: string
     ) {
         super(message)

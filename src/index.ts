@@ -7,6 +7,8 @@ import articlesRoute from "./routes/articles.route.js";
 import {authMiddleware} from "./middlewares/auth.middleware.js";
 import {rateLimitMiddleware} from "./middlewares/rate-limit.middleware.js";
 import {ssrfMiddleware} from "./middlewares/ssrf.middleware.js";
+import {securityHeadersMiddleware} from "./middlewares/security-headers.middleware.js";
+import {payloadSizeLimitMiddleware} from "./middlewares/size-limit.middleware.js";
 import {swaggerUI} from "@hono/swagger-ui";
 import {openApiDoc} from "./openapi.js";
 import { cors } from "hono/cors";
@@ -17,6 +19,7 @@ import {startCron} from "./services/cron.service.js";
 import {createNodeWebSocket} from "@hono/node-ws";
 import {getUserById, getUserByUsername} from "./repositories/user.repository.js";
 import {registerConnection, removeConnection} from "./services/ws.service.js";
+import {verifyToken} from "./services/auth.service.js";
 import authRoute from "./routes/auth.route.js";
 
 async function bootstrap() {
@@ -35,9 +38,16 @@ bootstrap()
 const app = new Hono()
 const { injectWebSocket, upgradeWebSocket } = createNodeWebSocket({ app })
 
-app.use('*', cors())
+const corsOrigin = process.env.CORS_ORIGIN ?? 'http://localhost:5173'
+
+app.use('*', cors({
+    origin: corsOrigin,
+    credentials: true,
+}))
 
 app.use('*', ssrfMiddleware)
+app.use('*', securityHeadersMiddleware)
+app.use('*', payloadSizeLimitMiddleware)
 app.use('/detect/*', authMiddleware)
 app.use('/articles/*', authMiddleware)
 app.use('/users/*', authMiddleware)
@@ -50,18 +60,57 @@ app.route('/articles', articlesRoute)
 app.route('/users', userRoute)
 app.route('/feeds', feedRoute)
 
-app.get('/ws/:username', upgradeWebSocket((c) => {
+app.get('/ws/:username', upgradeWebSocket(async (c) => {
   const username: string = c.req.param('username') || "";
+  const token = c.req.query('token');
+
+  if (!token) {
+    return {
+      onOpen(_, ws) {
+        ws.close(1008, 'Authentication required: provide token as query parameter')
+      }
+    }
+  }
+
+  let authUserId: number;
+  let authUsername: string;
+
+  try {
+    const payload = await verifyToken(token)
+    if (payload.type !== 'access') {
+      return {
+        onOpen(_, ws) {
+          ws.close(1008, 'Invalid token type')
+        }
+      }
+    }
+    authUserId = payload.userId
+    authUsername = payload.username
+  } catch {
+    return {
+      onOpen(_, ws) {
+        ws.close(1008, 'Invalid or expired token')
+      }
+    }
+  }
+
+  if (authUsername !== username) {
+    return {
+      onOpen(_, ws) {
+        ws.close(1008, 'Token username does not match URL username')
+      }
+    }
+  }
 
   return {
     onOpen(_, ws) {
-      if(!username || username.trim().length ==0) return;
-      
+      if (!username || username.trim().length == 0) return;
+
       (async () => {
         try {
           const user = await getUserByUsername(username)
           if (!user) {
-            ws.close(1008, 'Utilisateur introuvable')
+            ws.close(1008, 'User not found')
             return
           }
           registerConnection(username, ws)

@@ -11,6 +11,8 @@ type CustomItem = {
     'media:content'?: { $: { url: string } }
 }
 
+const MAX_ARTICLES_PER_FEED = 100
+
 const rssParser = new Parser<object, CustomItem>({
     timeout: 10000,
     headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TechWatchBot/1.0)' },
@@ -36,7 +38,6 @@ export interface FeedResult {
 
 function extractImage(item: CustomItem): string | null {
     if (item['media:content']?.$?.url) return item['media:content'].$.url
-    // enclosure (podcasts, images attachées)
     if (item.enclosure?.url) return item.enclosure.url
     return null
 }
@@ -44,11 +45,12 @@ function extractImage(item: CustomItem): string | null {
 export async function getArticles(feedUrl: string): Promise<FeedResult> {
     try {
         const feed = await rssParser.parseURL(feedUrl)
+        const articles = feed.items.slice(0, MAX_ARTICLES_PER_FEED)
 
         return {
             feedUrl,
             title: feed.title ?? 'Sans titre',
-            articles: feed.items.map((item) => ({
+            articles: articles.map((item) => ({
                 title: item.title ?? 'Sans titre',
                 link: item.link ?? '',
                 date: item.pubDate ?? null,
@@ -66,6 +68,9 @@ export async function getArticles(feedUrl: string): Promise<FeedResult> {
         }
         if (e.message?.includes('Status code')) {
             throw new FeedError('NOT_FOUND', 'Aucun flux trouvé à cette URL')
+        }
+        if (e.message?.includes('trop volumineuse') || e.message?.includes('Too large')) {
+            throw new FeedError('TOO_LARGE', 'Réponse trop volumineuse')
         }
         throw new FeedError('PARSE_ERROR', 'Impossible de lire le contenu du flux')
     }

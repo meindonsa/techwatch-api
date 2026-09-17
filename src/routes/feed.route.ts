@@ -12,11 +12,16 @@ import { getUserByUsername, getUserById } from '../repositories/user.repository.
 import {FeedError, FeedErrors} from '../utils/errors.js'
 import {createFeed, nameSchema} from "../validators/feed.validator.js";
 
-const feedRoute = new Hono()
+type AuthVariables = {
+    userId: number
+    username: string
+}
+
+const feedRoute = new Hono<{ Variables: AuthVariables }>()
 
 // POST /feeds/:username
 feedRoute.post('/:username', async (c) => {
-    const authUsername = c.get('username')
+    const authUsername = c.get('username') as string
     const username: string = c.req.param('username');
 
     if (authUsername !== username) {
@@ -71,7 +76,7 @@ feedRoute.post('/:username', async (c) => {
 
 // DELETE /feeds/:feedId/users/:username
 feedRoute.delete('/:feedId/users/:username', async (c) => {
-    const authUsername = c.get('username')
+    const authUsername = c.get('username') as string
     const username: string = String(c.req.param('username'))
 
     if (authUsername !== username) {
@@ -90,7 +95,7 @@ feedRoute.delete('/:feedId/users/:username', async (c) => {
 
 // GET /feeds/by-username/:username
 feedRoute.get('/by-username/:username', async (c) => {
-    const authUsername = c.get('username')
+    const authUsername = c.get('username') as string
     const username = c.req.param('username')
 
     if (authUsername !== username) {
