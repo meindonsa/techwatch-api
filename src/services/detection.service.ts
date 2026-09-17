@@ -1,5 +1,6 @@
 import Parser from 'rss-parser'
 import { parse } from 'node-html-parser'
+import { fetchWithSizeLimit } from '../middlewares/size-limit.middleware.js'
 
 export interface SourceDetectionResult {
     type: 'rss' | 'atom' | 'none'
@@ -47,8 +48,7 @@ async function isValidRssFeed(url: string): Promise<boolean> {
 
 async function findFeedInHtml(url: string): Promise<string | null> {
     try {
-        const res = await fetch(url, {
-            signal: AbortSignal.timeout(10000),
+        const res = await fetchWithSizeLimit(url, {
             headers: { 'User-Agent': 'Mozilla/5.0 (compatible; TechWatchBot/1.0)' },
         })
 
