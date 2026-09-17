@@ -38,7 +38,7 @@ export async function insertArticles(articles: NewArticle[]): Promise<number> {
                 VALUES ($1, $2, $3, $4, $5, $6, $7)
                 ON CONFLICT(link) DO NOTHING
             `, [item.title, item.link, item.pub_date, item.summary, item.author, item.image, item.feed_id])
-            inserted += result.rowCount
+            inserted += result.rowCount ?? 0
         }
         await client.query('COMMIT')
         return inserted
