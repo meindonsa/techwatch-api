@@ -10,6 +10,15 @@ function isValidUrl(val: string): boolean {
     }
 }
 
+function isStrongPassword(password: string): boolean {
+    if (password.length < 12) return false
+    if (!/[A-Z]/.test(password)) return false
+    if (!/[a-z]/.test(password)) return false
+    if (!/[0-9]/.test(password)) return false
+    if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(password)) return false
+    return true
+}
+
 export const urlSchema = z
     .string({ error: 'URL requise' })
     .min(3, 'URL trop courte')
@@ -31,5 +40,9 @@ export const urlArraySchema = z
 
 export const createUserSchema = z.object({
     username: z.string().min(1, 'Le pseudo est requis'),
-    password: z.string().min(6, 'Le mot de passe doit contenir au moins 6 caractères'),
+    password: z.string()
+        .min(12, 'Le mot de passe doit contenir au moins 12 caractères')
+        .refine(isStrongPassword, { 
+            message: 'Le mot de passe doit contenir au moins : 1 majuscule, 1 minuscule, 1 chiffre, 1 caractère spécial' 
+        }),
 })
