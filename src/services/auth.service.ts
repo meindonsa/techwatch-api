@@ -1,6 +1,10 @@
 import { SignJWT, jwtVerify } from 'jose'
 
-const SECRET = new TextEncoder().encode(process.env.JWT_SECRET ?? 'changeme_secret')
+if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET environment variable is required')
+}
+
+const SECRET = new TextEncoder().encode(process.env.JWT_SECRET)
 const ACCESS_EXPIRATION = process.env.JWT_ACCESS_EXPIRATION ?? '15m'
 const REFRESH_EXPIRATION = process.env.JWT_REFRESH_EXPIRATION ?? '7d'
 
