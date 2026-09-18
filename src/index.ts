@@ -45,6 +45,14 @@ app.use('*', cors({
     credentials: true,
 }))
 
+app.get('/health', (c) => {
+    return c.json({ 
+        status: 'ok', 
+        timestamp: new Date().toISOString(),
+        uptime: process.uptime()
+    })
+})
+
 app.use('*', ssrfMiddleware)
 app.use('*', securityHeadersMiddleware)
 app.use('*', payloadSizeLimitMiddleware)
