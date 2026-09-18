@@ -12,15 +12,17 @@ export async function verifyPassword(hash: string, password: string): Promise<bo
 export interface User {
     id: number
     username: string
+    email: string
+    full_name: string
     password: string
     created_at: Date
 }
 
-export async function createUser(username: string, password: string): Promise<User> {
+export async function createUser(email: string, fullName: string, password: string): Promise<User> {
     const hashed = await hashPassword(password)
     const result = await db.query(`
-    INSERT INTO users (username, password) VALUES ($1, $2) RETURNING *
-  `, [username, hashed])
+    INSERT INTO users (email, full_name, username, password) VALUES ($1, $2, $3, $4) RETURNING *
+  `, [email, fullName, email.split('@')[0] + '_' + Date.now(), hashed])
     return result.rows[0] as User
 }
 
@@ -32,6 +34,20 @@ export async function getUserById(id: number): Promise<User | undefined> {
 export async function getUserByUsername(username: string): Promise<User | undefined> {
     const result = await db.query(`SELECT * FROM users WHERE username = $1`, [username])
     return result.rows[0] as User | undefined
+}
+
+export async function getUserByEmail(email: string): Promise<User | undefined> {
+    const result = await db.query(`SELECT * FROM users WHERE email = $1`, [email])
+    return result.rows[0] as User | undefined
+}
+
+export async function emailExists(email: string): Promise<boolean> {
+    const result = await db.query(`SELECT 1 FROM users WHERE email = $1`, [email])
+    return result.rowCount !== 0
+}
+
+export async function updateFullName(id: number, fullName: string): Promise<void> {
+    await db.query(`UPDATE users SET full_name = $1 WHERE id = $2`, [fullName, id])
 }
 
 export async function usernameExists(username: string): Promise<boolean> {

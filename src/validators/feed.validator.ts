@@ -39,10 +39,16 @@ export const urlArraySchema = z
 
 
 export const createUserSchema = z.object({
-    username: z.string().min(1, 'Le pseudo est requis'),
+    email: z.string().email('Email invalide'),
+    full_name: z.string().min(1, 'Le nom complet est requis'),
     password: z.string()
         .min(12, 'Le mot de passe doit contenir au moins 12 caractères')
         .refine(isStrongPassword, { 
             message: 'Le mot de passe doit contenir au moins : 1 majuscule, 1 minuscule, 1 chiffre, 1 caractère spécial' 
         }),
+})
+
+export const loginSchema = z.object({
+    email: z.string().email('Email invalide'),
+    password: z.string().min(1, 'Le mot de passe est requis'),
 })
