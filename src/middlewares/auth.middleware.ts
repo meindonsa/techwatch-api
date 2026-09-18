@@ -29,6 +29,7 @@ export const authMiddleware = createMiddleware(async (c, next) => {
 
         c.set('userId', payload.userId)
         c.set('username', payload.username)
+        c.set('email', payload.email)
         await next()
     } catch {
         return c.json({ error: 'Token invalide ou expiré' }, 401)

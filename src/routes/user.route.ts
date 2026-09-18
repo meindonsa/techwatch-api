@@ -1,13 +1,13 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { createUser, getUserById, getUserByUsername, usernameExists, updatePassword, deleteUser, verifyPassword } from '../repositories/user.repository.js'
+import { getUserById, updatePassword, deleteUser, verifyPassword, updateFullName, usernameExists } from '../repositories/user.repository.js'
 import { getArticlesByUser } from '../repositories/article.repository.js'
 import { deleteUserRefreshTokens } from '../repositories/refresh-token.repository.js'
-import {createUserSchema} from "../validators/feed.validator.js";
 
 type AuthVariables = {
     userId: number
     username: string
+    email: string
 }
 
 const userRoute = new Hono<{ Variables: AuthVariables }>()
@@ -22,6 +22,29 @@ userRoute.get('/me', async (c) => {
 
     const { password, ...userWithoutPassword } = user
     return c.json(userWithoutPassword)
+})
+
+// PATCH /users/me — mettre à jour son nom complet
+userRoute.patch('/me', async (c) => {
+    const userId = c.get('userId') as number
+    const { full_name } = await c.req.json()
+
+    if (!full_name || full_name.trim() === '') {
+        return c.json({ error: 'Le nom complet est requis' }, 400)
+    }
+
+    try {
+        const user = await getUserById(userId)
+        if (!user) return c.json({ error: 'Utilisateur introuvable' }, 404)
+
+        await updateFullName(userId, full_name.trim())
+        
+        const updatedUser = await getUserById(userId)
+        const { password, ...userWithoutPassword } = updatedUser!
+        return c.json(userWithoutPassword)
+    } catch (e) {
+        return c.json({ error: 'Erreur lors de la mise à jour du nom' }, 500)
+    }
 })
 
 // PATCH /users/me/password — changer son mot de passe

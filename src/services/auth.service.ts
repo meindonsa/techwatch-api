@@ -11,19 +11,20 @@ const REFRESH_EXPIRATION = process.env.JWT_REFRESH_EXPIRATION ?? '7d'
 export interface JWTPayload {
     userId: number
     username: string
+    email: string
     type: 'access' | 'refresh'
 }
 
-export async function signAccessToken(userId: number, username: string): Promise<string> {
-    return new SignJWT({ userId, username, type: 'access' })
+export async function signAccessToken(userId: number, username: string, email: string): Promise<string> {
+    return new SignJWT({ userId, username, email, type: 'access' })
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
         .setExpirationTime(ACCESS_EXPIRATION)
         .sign(SECRET)
 }
 
-export async function signRefreshToken(userId: number, username: string): Promise<string> {
-    return new SignJWT({ userId, username, type: 'refresh' })
+export async function signRefreshToken(userId: number, username: string, email: string): Promise<string> {
+    return new SignJWT({ userId, username, email, type: 'refresh' })
         .setProtectedHeader({ alg: 'HS256' })
         .setIssuedAt()
         .setExpirationTime(REFRESH_EXPIRATION)
