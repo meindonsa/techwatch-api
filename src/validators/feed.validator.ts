@@ -52,3 +52,16 @@ export const loginSchema = z.object({
     email: z.string().email('Email invalide'),
     password: z.string().min(1, 'Le mot de passe est requis'),
 })
+
+export const forgotPasswordSchema = z.object({
+    email: z.string().email('Email invalide'),
+})
+
+export const resetPasswordSchema = z.object({
+    token: z.string().min(1, 'Token requis'),
+    password: z.string()
+        .min(12, 'Le mot de passe doit contenir au moins 12 caractères')
+        .refine(isStrongPassword, { 
+            message: 'Le mot de passe doit contenir au moins : 1 majuscule, 1 minuscule, 1 chiffre, 1 caractère spécial' 
+        }),
+})
