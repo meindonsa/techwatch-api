@@ -1,6 +1,7 @@
 interface EmailServiceConfig {
     baseUrl: string
     apiKey: string
+    app: string
 }
 
 interface SendEmailInput {
@@ -27,7 +28,7 @@ export class EmailService {
                 'Content-Type': 'application/json',
                 'x-api-key': this.config.apiKey,
             },
-            body: JSON.stringify(input),
+            body: JSON.stringify({ app: this.config.app, ...input }),
         })
 
         if (!response.ok) {
@@ -55,12 +56,13 @@ export function getEmailService(): EmailService {
     if (!emailServiceInstance) {
         const baseUrl = process.env.MAIL_SERVICE_URL
         const apiKey = process.env.MAIL_API_KEY
+        const app = process.env.MAIL_APP
 
-        if (!baseUrl || !apiKey) {
-            throw new Error('MAIL_SERVICE_URL and MAIL_API_KEY must be configured')
+        if (!baseUrl || !apiKey || !app) {
+            throw new Error('MAIL_SERVICE_URL, MAIL_API_KEY and MAIL_APP must be configured')
         }
 
-        emailServiceInstance = new EmailService({ baseUrl, apiKey })
+        emailServiceInstance = new EmailService({ baseUrl, apiKey, app })
     }
 
     return emailServiceInstance
