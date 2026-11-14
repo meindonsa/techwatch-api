@@ -51,3 +51,10 @@ CREATE TABLE IF NOT EXISTS articles (
     feed_id INTEGER NOT NULL REFERENCES feeds(id) ON DELETE CASCADE,
     fetched_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Validateurs HTTP du dernier scraping (requêtes conditionnelles If-None-Match / If-Modified-Since)
+ALTER TABLE feeds ADD COLUMN IF NOT EXISTS etag TEXT;
+ALTER TABLE feeds ADD COLUMN IF NOT EXISTS last_modified TEXT;
+
+-- Pagination par flux et purge (plafond par flux)
+CREATE INDEX IF NOT EXISTS idx_articles_feed_pub_date ON articles (feed_id, pub_date DESC);

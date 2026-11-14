@@ -1,5 +1,5 @@
 import { db } from '../db/index.js'
-import type { Feed } from './feed.repository.js'
+import { FEED_COLUMNS_ALIASED, type Feed } from './feed.repository.js'
 
 export interface UserFeed {
     id: number
@@ -30,7 +30,7 @@ export async function unsubscribeUserFromFeed(userId: number, feedId: number): P
 
 export async function getFeedsByUser(userId: number): Promise<Feed[]> {
     const result = await db.query(`
-    SELECT f.*, COUNT(a.id) as article_count 
+    SELECT ${FEED_COLUMNS_ALIASED}, COUNT(a.id) as article_count
     FROM feeds f
     INNER JOIN user_feeds uf ON uf.feed_id = f.id
     LEFT JOIN articles a ON a.feed_id = f.id

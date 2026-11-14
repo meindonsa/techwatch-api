@@ -21,9 +21,15 @@ L'API permet de transformer n'importe quelle URL de site web en un flux de donn�
 - **Gestion CRUD** : Ajout, mise à jour et suppression de flux.
 
 ### 📰 Agrégation d'Articles
-- **Scraping Automatisé** : Un service cron tourne en arrière-plan pour mettre à jour régulièrement tous les flux enregistrés en base de données.
+- **Scraping Automatisé** : Un service cron tourne en arrière-plan pour mettre à jour régulièrement les flux suivis par au moins un utilisateur.
+- **Requêtes conditionnelles** : le cron envoie `If-None-Match` / `If-Modified-Since` ; si le flux n'a pas changé (`304`), rien n'est téléchargé ni analysé.
 - **Déduplication** : Seuls les nouveaux articles sont insérés (basé sur l'URL unique de l'article).
 - **Consultation** : Récupération des articles par utilisateur (tous ses abonnements) ou par flux spécifique.
+
+### 🗄️ Maîtrise du Volume de Données
+- **Purge automatique** : le cron supprime, par lots, les articles plus vieux que `ARTICLE_RETENTION_DAYS` (60 jours par défaut) et ne garde que les `ARTICLES_MAX_PER_FEED` plus récents par flux (200 par défaut, jamais moins de 100). La purge s'exécute au plus toutes les `PURGE_INTERVAL_MS` (6 h par défaut). `0` désactive la purge par l'âge ou le plafond.
+- **Pas de réinsertion** : les articles déjà plus vieux que la durée de rétention ne sont pas insérés, afin qu'ils ne soient ni purgés puis réinsérés en boucle, ni notifiés à tort.
+- **Flux sans abonné** : ils ne sont plus scrapés. Leurs articles restent soumis à la purge.
 
 ### ⚡ Notifications Temps Réel
 - **WebSockets** : Les utilisateurs connectés reçoivent une notification `new_articles` dès que le moteur de scraping détecte du nouveau contenu sur leurs flux.
@@ -60,5 +66,5 @@ L'API permet de transformer n'importe quelle URL de site web en un flux de donn�
 
 1. **Utilisateur** $\rightarrow$ Ajoute une URL de site.
 2. **API** $\rightarrow$ Détecte le flux RSS $\rightarrow$ L'enregistre $\rightarrow$ Télécharge les premiers articles.
-3. **Cron Service** $\rightarrow$ Vérifie périodiquement tous les flux $\rightarrow$ Insère les nouveaux articles $\rightarrow$ Nettoie les tokens expirés.
+3. **Cron Service** $\rightarrow$ Vérifie périodiquement les flux suivis (requête conditionnelle) $\rightarrow$ Insère les nouveaux articles $\rightarrow$ Nettoie les tokens expirés $\rightarrow$ Purge les articles trop anciens ou au-delà du plafond par flux.
 4. **WS Service** $\rightarrow$ Identifie les abonnés $\rightarrow$ Envoie une notification WebSocket.

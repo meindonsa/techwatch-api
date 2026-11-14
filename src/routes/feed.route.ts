@@ -7,6 +7,7 @@ import {
 } from '../repositories/user-feed.repository.js'
 import { insertArticles } from '../repositories/article.repository.js'
 import { getArticles } from '../services/article.service.js'
+import { filterRetainable } from '../services/retention.service.js'
 import {detectSource, type SourceDetectionResult} from '../services/detection.service.js'
 import { getUserByUsername, getUserById } from '../repositories/user.repository.js'
 import {FeedError, FeedErrors} from '../utils/errors.js'
@@ -54,7 +55,7 @@ feedRoute.post('/:username', async (c) => {
 
         const subscription = await subscribeUserToFeed(user.id, feed.id)
 
-        const inserted = await insertArticles(feedData.articles.map((a) => ({
+        const inserted = await insertArticles(filterRetainable(feedData.articles).map((a) => ({
             feed_id: feed.id,
             title: a.title,
             link: a.link,
