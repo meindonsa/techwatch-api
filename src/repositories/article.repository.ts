@@ -28,6 +28,8 @@ export interface NewArticle {
  * Retourne le nombre de nouvelles lignes insérées.
  */
 export async function insertArticles(articles: NewArticle[]): Promise<number> {
+    if (articles.length === 0) return 0
+
     const client = await db.connect()
     try {
         await client.query('BEGIN')
@@ -47,6 +49,65 @@ export async function insertArticles(articles: NewArticle[]): Promise<number> {
         throw e
     } finally {
         client.release()
+    }
+}
+
+/**
+ * Supprime, par lots, les articles dont la date de publication dépasse `days` jours.
+ * Les articles sans date de publication ne sont jamais purgés par l'âge (ils restent soumis au plafond par flux).
+ * Les lots courts évitent de verrouiller la table longtemps. Retourne le nombre de lignes supprimées.
+ */
+export async function deleteArticlesOlderThan(days: number, batchSize: number): Promise<number> {
+    let total = 0
+
+    while (true) {
+        const result = await db.query(`
+            DELETE FROM articles
+            WHERE id IN (
+                SELECT id FROM articles
+                WHERE pub_date IS NOT NULL
+                  AND pub_date < NOW() - make_interval(days => $1::int)
+                LIMIT $2
+            )
+        `, [days, batchSize])
+
+        const deleted = result.rowCount ?? 0
+        total += deleted
+        if (deleted < batchSize) return total
+    }
+}
+
+/**
+ * Ne garde que les `maxPerFeed` articles les plus récents de chaque flux (par lots).
+ * Le rang se base sur la date de publication, à défaut sur la date de récupération.
+ * Retourne le nombre de lignes supprimées.
+ */
+export async function deleteArticlesOverFeedCap(maxPerFeed: number, batchSize: number): Promise<number> {
+    let total = 0
+
+    while (true) {
+        const result = await db.query(`
+            DELETE FROM articles
+            WHERE id IN (
+                SELECT id FROM (
+                    SELECT a.id,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY a.feed_id
+                               ORDER BY COALESCE(a.pub_date, a.fetched_at) DESC, a.id DESC
+                           ) AS rn
+                    FROM articles a
+                    WHERE a.feed_id IN (
+                        SELECT feed_id FROM articles GROUP BY feed_id HAVING COUNT(*) > $1::int
+                    )
+                ) ranked
+                WHERE rn > $1::int
+                LIMIT $2
+            )
+        `, [maxPerFeed, batchSize])
+
+        const deleted = result.rowCount ?? 0
+        total += deleted
+        if (deleted < batchSize) return total
     }
 }
 
