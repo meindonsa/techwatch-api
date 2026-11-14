@@ -20,7 +20,6 @@ const MAX_REDIRECTS = 5
 const USER_AGENT = 'Mozilla/5.0 (compatible; TechWatchBot/1.0)'
 const TITLE_MAX_LENGTH = 500
 const AUTHOR_MAX_LENGTH = 200
-const DEFAULT_SUMMARY_MAX_LENGTH = 300
 
 const rssParser = new Parser<object, CustomItem>({
     timeout: 10000,
@@ -55,12 +54,6 @@ export type ConditionalFeedResult =
     | { notModified: true }
     | { notModified: false; data: FeedResult; etag: string | null; lastModified: string | null }
 
-/** Longueur maximale du résumé stocké (variable d'environnement SUMMARY_MAX_LENGTH, 300 par défaut). */
-function getSummaryMaxLength(): number {
-    const value = Number(process.env.SUMMARY_MAX_LENGTH)
-    return Number.isInteger(value) && value > 0 ? value : DEFAULT_SUMMARY_MAX_LENGTH
-}
-
 function extractImage(item: CustomItem): string | null {
     if (item['media:content']?.$?.url) return item['media:content'].$.url
     if (item.enclosure?.url) return item.enclosure.url
@@ -68,8 +61,6 @@ function extractImage(item: CustomItem): string | null {
 }
 
 function toFeedResult(feedUrl: string, feed: Parser.Output<CustomItem>): FeedResult {
-    const summaryMaxLength = getSummaryMaxLength()
-
     return {
         feedUrl,
         title: feed.title ?? 'Sans titre',
@@ -77,7 +68,7 @@ function toFeedResult(feedUrl: string, feed: Parser.Output<CustomItem>): FeedRes
             title: truncateText(item.title, TITLE_MAX_LENGTH) ?? 'Sans titre',
             link: item.link ?? '',
             date: item.pubDate ?? null,
-            summary: truncateText(item.contentSnippet, summaryMaxLength),
+            summary: item.contentSnippet ?? null,
             author: truncateText(item.creator, AUTHOR_MAX_LENGTH),
             image: extractImage(item),
         })),

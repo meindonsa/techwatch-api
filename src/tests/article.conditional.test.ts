@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { FeedError } from '../utils/errors.js'
 
 const { mockParseURL, mockParseString, mockFetch } = vi.hoisted(() => ({
@@ -36,10 +36,6 @@ beforeEach(() => {
     mockParseURL.mockReset()
     mockParseString.mockReset()
     mockFetch.mockReset()
-})
-
-afterEach(() => {
-    delete process.env.SUMMARY_MAX_LENGTH
 })
 
 describe('getArticlesIfModified', () => {
@@ -175,41 +171,24 @@ describe('getArticlesIfModified', () => {
     })
 })
 
-describe('troncature des résumés', () => {
-    it('tronque le résumé à 300 caractères par défaut', async () => {
-        mockParseURL.mockResolvedValueOnce(parsedFeed('x'.repeat(5000)))
+describe('résumés', () => {
+    it('conserve le résumé tel que fourni par le flux, sans troncature', async () => {
+        const long = 'x'.repeat(5000)
+        mockParseURL.mockResolvedValueOnce(parsedFeed(long))
 
         const { articles } = await getArticles(FEED_URL)
 
-        expect(articles[0].summary).toHaveLength(300)
-        expect(articles[0].summary!.endsWith('…')).toBe(true)
+        expect(articles[0].summary).toBe(long)
     })
 
-    it('respecte SUMMARY_MAX_LENGTH', async () => {
-        process.env.SUMMARY_MAX_LENGTH = '50'
-        mockParseURL.mockResolvedValueOnce(parsedFeed('mot '.repeat(100)))
-
-        const { articles } = await getArticles(FEED_URL)
-
-        expect(articles[0].summary!.length).toBeLessThanOrEqual(50)
-    })
-
-    it('ignore une valeur invalide de SUMMARY_MAX_LENGTH', async () => {
-        process.env.SUMMARY_MAX_LENGTH = 'beaucoup'
-        mockParseURL.mockResolvedValueOnce(parsedFeed('x'.repeat(5000)))
-
-        const { articles } = await getArticles(FEED_URL)
-
-        expect(articles[0].summary).toHaveLength(300)
-    })
-
-    it('s’applique aussi à la lecture conditionnelle', async () => {
+    it('conserve aussi le résumé en lecture conditionnelle', async () => {
+        const long = 'x'.repeat(5000)
         mockFetch.mockResolvedValueOnce(okResponse())
-        mockParseString.mockResolvedValueOnce(parsedFeed('x'.repeat(5000)))
+        mockParseString.mockResolvedValueOnce(parsedFeed(long))
 
         const result = await getArticlesIfModified(FEED_URL)
 
         if (result.notModified) throw new Error('inattendu')
-        expect(result.data.articles[0].summary).toHaveLength(300)
+        expect(result.data.articles[0].summary).toBe(long)
     })
 })

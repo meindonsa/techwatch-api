@@ -27,7 +27,6 @@ L'API permet de transformer n'importe quelle URL de site web en un flux de donn�
 - **Consultation** : Récupération des articles par utilisateur (tous ses abonnements) ou par flux spécifique.
 
 ### 🗄️ Maîtrise du Volume de Données
-- **Résumés tronqués** : seul un résumé en texte brut est stocké (`SUMMARY_MAX_LENGTH`, 300 caractères par défaut), jamais le contenu complet. Le lecteur ouvre l'article sur le site d'origine.
 - **Purge automatique** : le cron supprime, par lots, les articles plus vieux que `ARTICLE_RETENTION_DAYS` (60 jours par défaut) et ne garde que les `ARTICLES_MAX_PER_FEED` plus récents par flux (200 par défaut, jamais moins de 100). La purge s'exécute au plus toutes les `PURGE_INTERVAL_MS` (6 h par défaut). `0` désactive la purge par l'âge ou le plafond.
 - **Pas de réinsertion** : les articles déjà plus vieux que la durée de rétention ne sont pas insérés, afin qu'ils ne soient ni purgés puis réinsérés en boucle, ni notifiés à tort.
 - **Flux sans abonné** : ils ne sont plus scrapés. Leurs articles restent soumis à la purge.
