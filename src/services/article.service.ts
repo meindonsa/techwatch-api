@@ -8,7 +8,8 @@ type CustomItem = {
     link: string
     pubDate: string
     content: string
-    creator: string
+    creator?: string
+    author?: string
     enclosure?: { url: string }
     'media:content'?: { $: { url: string } }
     'media:thumbnail'?: { $: { url: string } }
@@ -86,7 +87,8 @@ function toFeedResult(feedUrl: string, feed: Parser.Output<CustomItem>): FeedRes
             link: item.link ?? '',
             date: item.pubDate ?? null,
             summary: item.contentSnippet ?? null,
-            author: truncateText(item.creator, AUTHOR_MAX_LENGTH),
+            // RSS 2.0 : <dc:creator> → item.creator ; Atom (ex. Les Numériques) : <author><name> → item.author
+            author: truncateText(item.creator || item.author, AUTHOR_MAX_LENGTH),
             image: extractImage(item),
         })),
     }
