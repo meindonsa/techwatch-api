@@ -11,6 +11,8 @@ type CustomItem = {
     creator: string
     enclosure?: { url: string }
     'media:content'?: { $: { url: string } }
+    'media:thumbnail'?: { $: { url: string } }
+    'content:encoded'?: string
 }
 
 /** Nombre maximum d'articles lus à chaque récupération d'un flux. */
@@ -25,7 +27,7 @@ const rssParser = new Parser<object, CustomItem>({
     timeout: 10000,
     headers: { 'User-Agent': USER_AGENT },
     customFields: {
-        item: ['media:content', 'enclosure'],
+        item: ['media:content', 'media:thumbnail', 'content:encoded', 'enclosure'],
     },
 })
 
@@ -54,10 +56,25 @@ export type ConditionalFeedResult =
     | { notModified: true }
     | { notModified: false; data: FeedResult; etag: string | null; lastModified: string | null }
 
+/** Première balise <img> d'un fragment HTML (guillemets simples ou doubles). */
+function firstImageFromHtml(html?: string): string | null {
+    return html?.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1] ?? null
+}
+
+/**
+ * Cherche l'image d'un article, des sources les plus fiables aux plus approximatives :
+ * media:content, media:thumbnail, enclosure, puis première <img> du HTML
+ * (content:encoded, ex. FrAndroid, puis content/description).
+ */
 function extractImage(item: CustomItem): string | null {
-    if (item['media:content']?.$?.url) return item['media:content'].$.url
-    if (item.enclosure?.url) return item.enclosure.url
-    return null
+    return (
+        item['media:content']?.$?.url ||
+        item['media:thumbnail']?.$?.url ||
+        item.enclosure?.url ||
+        firstImageFromHtml(item['content:encoded']) ||
+        firstImageFromHtml(item.content) ||
+        null
+    )
 }
 
 function toFeedResult(feedUrl: string, feed: Parser.Output<CustomItem>): FeedResult {
