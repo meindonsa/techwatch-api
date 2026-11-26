@@ -68,6 +68,13 @@ userRoute.patch('/me/password', async (c) => {
         const user = await getUserById(userId)
         if (!user) return c.json({ error: 'Utilisateur introuvable' }, 404)
 
+        if (user.password === null) {
+            return c.json({
+                error: "Ce compte n'a pas de mot de passe. Utilisez « Mot de passe oublié » pour en définir un.",
+                code: 'NO_PASSWORD_SET',
+            }, 400)
+        }
+
         const isValid = await verifyPassword(user.password, currentPassword)
         if (!isValid) {
             return c.json({ error: 'Mot de passe actuel incorrect' }, 401)

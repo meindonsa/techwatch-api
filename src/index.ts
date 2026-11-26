@@ -21,6 +21,7 @@ import {getUserById, getUserByUsername} from "./repositories/user.repository.js"
 import {registerConnection, removeConnection} from "./services/ws.service.js";
 import {verifyToken} from "./services/auth.service.js";
 import authRoute from "./routes/auth.route.js";
+import oauthRoute from "./routes/oauth.route.js";
 
 async function bootstrap() {
     try {
@@ -63,6 +64,7 @@ app.use('/feeds/*', authMiddleware)
 app.use('*', rateLimitMiddleware)
 
 app.route('/auth', authRoute)
+app.route('/auth', oauthRoute)
 app.route('/detect', detectRoute)
 app.route('/articles', articlesRoute)
 app.route('/users', userRoute)

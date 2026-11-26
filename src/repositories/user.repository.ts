@@ -1,5 +1,6 @@
 import { db } from '../db/index.js'
 import bcrypt from 'bcryptjs'
+import type { OAuthProvider } from '../utils/oauth.js'
 
 export async function hashPassword(password: string): Promise<string> {
     return bcrypt.hash(password, 10)
@@ -14,7 +15,8 @@ export interface User {
     username: string
     email: string
     full_name: string
-    password: string
+    /** null pour un compte créé uniquement via Google/GitHub */
+    password: string | null
     created_at: Date
 }
 
@@ -39,6 +41,59 @@ export async function getUserByUsername(username: string): Promise<User | undefi
 export async function getUserByEmail(email: string): Promise<User | undefined> {
     const result = await db.query(`SELECT * FROM users WHERE email = $1`, [email])
     return result.rows[0] as User | undefined
+}
+
+export async function getUserByEmailInsensitive(email: string): Promise<User | undefined> {
+    const result = await db.query(`SELECT * FROM users WHERE lower(email) = lower($1)`, [email])
+    return result.rows[0] as User | undefined
+}
+
+function isUniqueViolation(e: any, constraintPart?: string): boolean {
+    if (e?.code !== '23505') return false
+    if (!constraintPart) return true
+    return typeof e.constraint === 'string' && e.constraint.includes(constraintPart)
+}
+
+/**
+ * Crée un utilisateur sans mot de passe et sa liaison OAuth dans la même transaction.
+ * `usernames` : pseudos à essayer dans l'ordre ; on passe au suivant si le pseudo est déjà pris.
+ * Toute autre violation d'unicité (email, liaison déjà existante) est relancée à l'appelant.
+ */
+export async function createOAuthUser(
+    email: string,
+    fullName: string,
+    provider: OAuthProvider,
+    providerUserId: string,
+    usernames: string[]
+): Promise<User> {
+    const client = await db.connect()
+    try {
+        for (const username of usernames) {
+            await client.query('BEGIN')
+            try {
+                const created = await client.query(
+                    `INSERT INTO users (email, full_name, username, password)
+                     VALUES ($1, $2, $3, NULL) RETURNING *`,
+                    [email, fullName, username]
+                )
+                const user = created.rows[0] as User
+                await client.query(
+                    `INSERT INTO oauth_accounts (user_id, provider, provider_user_id, email)
+                     VALUES ($1, $2, $3, $4)`,
+                    [user.id, provider, providerUserId, email]
+                )
+                await client.query('COMMIT')
+                return user
+            } catch (e) {
+                await client.query('ROLLBACK')
+                if (isUniqueViolation(e, 'username')) continue
+                throw e
+            }
+        }
+        throw new Error('Impossible de générer un pseudo unique')
+    } finally {
+        client.release()
+    }
 }
 
 export async function emailExists(email: string): Promise<boolean> {

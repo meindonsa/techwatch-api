@@ -1,10 +1,10 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { createUser, getUserByEmail, verifyPassword, updatePassword } from '../repositories/user.repository.js'
-import { signAccessToken, signRefreshToken, verifyToken, signResetToken, verifyResetToken } from '../services/auth.service.js'
-import { 
-    createRefreshToken, 
-    findRefreshToken, 
+import { signAccessToken, verifyToken, signResetToken, verifyResetToken } from '../services/auth.service.js'
+import { issueSession } from '../services/session.service.js'
+import {
+    findRefreshToken,
     deleteRefreshToken, 
     deleteUserRefreshTokens 
 } from '../repositories/refresh-token.repository.js'
@@ -37,28 +37,20 @@ authRoute.post('/login', async (c) => {
         return c.json({ error: 'Identifiants invalides' }, 401)
     }
 
+    // Compte créé via Google/GitHub : pas de mot de passe à comparer.
+    if (user.password === null) {
+        return c.json({
+            error: 'Ce compte utilise la connexion Google ou GitHub',
+            code: 'OAUTH_ONLY_ACCOUNT',
+        }, 401)
+    }
+
     const valid = await verifyPassword(user.password, parsed.data.password)
     if (!valid) {
         return c.json({ error: 'Identifiants invalides' }, 401)
     }
 
-    const accessToken = await signAccessToken(user.id, user.username, user.email)
-    const refreshToken = await signRefreshToken(user.id, user.username, user.email)
-    
-    // On stocke le refresh token en DB avec expiration
-    const expiresAt = new Date()
-    const expirationDays = parseInt(process.env.JWT_REFRESH_EXPIRATION?.replace('d', '') || '7')
-    expiresAt.setDate(expiresAt.getDate() + expirationDays)
-    
-    await createRefreshToken(user.id, refreshToken, expiresAt)
-
-    const { password: _, ...safeUser } = user
-
-    return c.json({ 
-        accessToken, 
-        refreshToken, 
-        user: safeUser 
-    })
+    return c.json(await issueSession(user))
 })
 
 // POST /auth/refresh
