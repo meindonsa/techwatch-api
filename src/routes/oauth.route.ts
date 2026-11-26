@@ -10,7 +10,8 @@ import {
     generateState,
     getProviderConfig,
 } from '../services/oauth.service.js'
-import { resolveOAuthUser } from '../services/oauth-user.service.js'
+import { linkProfileToUser, resolveOAuthUser } from '../services/oauth-user.service.js'
+import { takeLinkState } from '../services/oauth-state.service.js'
 import { consumeLoginCode, createLoginCode } from '../services/oauth-code.service.js'
 import { issueSession } from '../services/session.service.js'
 import { isOAuthProvider, OAuthError, type OAuthProvider } from '../utils/oauth.js'
@@ -23,6 +24,8 @@ const COOKIE_PATH = '/auth'
 /** Chemins du front (sur FRONTEND_URL) vers lesquels l'API redirige à la fin du flux. */
 const FRONT_SUCCESS_PATH = '/oauth/callback'
 const FRONT_ERROR_PATH = '/login'
+/** Page de profil : reçoit `?linked=<provider>` ou `?link_error=<code>` après une liaison. */
+const FRONT_PROFILE_PATH = '/profile'
 
 const exchangeSchema = z.object({
     code: z.string().min(1, 'Le code est requis'),
@@ -106,12 +109,37 @@ oauthRoute.get('/:provider/callback', async (c) => {
     deleteCookie(c, stateCookie(provider), { path: COOKIE_PATH })
     deleteCookie(c, verifierCookie(provider), { path: COOKIE_PATH })
 
+    const state = c.req.query('state')
+    const code = c.req.query('code')
+
+    // Mode liaison : le state a été émis par POST /users/me/oauth/:provider/start pour un utilisateur connecté.
+    const linkState = state ? takeLinkState(state) : undefined
+    if (linkState) {
+        const failLink = (error: string) => c.redirect(frontUrl(FRONT_PROFILE_PATH, { link_error: error }))
+
+        if (linkState.provider !== provider) return failLink('invalid_state')
+        if (c.req.query('error')) return failLink('access_denied')
+        if (!code) return failLink('invalid_state')
+
+        try {
+            const profile = await fetchProfile(provider, code, linkState.codeVerifier)
+            await linkProfileToUser(linkState.userId, profile)
+            return c.redirect(frontUrl(FRONT_PROFILE_PATH, { linked: provider }))
+        } catch (e) {
+            if (e instanceof OAuthError) {
+                if (e.code === 'provider_error') console.error(`[oauth:${provider}:link]`, e.message)
+                return failLink(e.code)
+            }
+            console.error(`[oauth:${provider}:link] erreur inattendue`, e)
+            return failLink('provider_error')
+        }
+    }
+
+    // Mode connexion : state vérifié contre le cookie posé par GET /auth/:provider.
     if (c.req.query('error')) {
         return fail('access_denied')
     }
 
-    const state = c.req.query('state')
-    const code = c.req.query('code')
     if (!expectedState || !state || !code || !safeEqual(state, expectedState)) {
         return fail('invalid_state')
     }

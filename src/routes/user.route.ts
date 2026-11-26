@@ -3,6 +3,19 @@ import { z } from 'zod'
 import { getUserById, updatePassword, deleteUser, verifyPassword, updateFullName, usernameExists } from '../repositories/user.repository.js'
 import { getArticlesByUser } from '../repositories/article.repository.js'
 import { deleteUserRefreshTokens } from '../repositories/refresh-token.repository.js'
+import {
+    findOAuthAccountByUser,
+    listOAuthAccountsByUser,
+    unlinkOAuthAccount,
+} from '../repositories/oauth-account.repository.js'
+import {
+    buildAuthorizationUrl,
+    generateCodeVerifier,
+    generateState,
+    getProviderConfig,
+} from '../services/oauth.service.js'
+import { saveLinkState } from '../services/oauth-state.service.js'
+import { isOAuthProvider, OAUTH_PROVIDERS } from '../utils/oauth.js'
 
 type AuthVariables = {
     userId: number
@@ -100,6 +113,74 @@ userRoute.delete('/me', async (c) => {
     } catch (e) {
         return c.json({ error: 'Erreur lors de la suppression du compte' }, 500)
     }
+})
+
+// GET /users/me/oauth — comptes Google/GitHub liés + état du mot de passe
+userRoute.get('/me/oauth', async (c) => {
+    const userId = c.get('userId') as number
+
+    const user = await getUserById(userId)
+    if (!user) return c.json({ error: 'Utilisateur introuvable' }, 404)
+
+    const accounts = await listOAuthAccountsByUser(userId)
+
+    return c.json({
+        hasPassword: user.password !== null,
+        providers: OAUTH_PROVIDERS.map((provider) => {
+            const account = accounts.find((a) => a.provider === provider)
+            return {
+                provider,
+                configured: getProviderConfig(provider) !== null,
+                linked: Boolean(account),
+                email: account?.email ?? null,
+                linkedAt: account?.created_at ?? null,
+            }
+        }),
+    })
+})
+
+// POST /users/me/oauth/:provider/start — renvoie l'URL de consentement pour lier un provider
+// (le front navigue ensuite vers cette URL ; le retour passe par GET /auth/:provider/callback)
+userRoute.post('/me/oauth/:provider/start', async (c) => {
+    const userId = c.get('userId') as number
+    const provider = c.req.param('provider')
+
+    if (!isOAuthProvider(provider)) return c.json({ error: 'Provider inconnu' }, 404)
+
+    if (!getProviderConfig(provider)) {
+        return c.json({ error: "Ce provider n'est pas configuré", code: 'not_configured' }, 400)
+    }
+
+    if (await findOAuthAccountByUser(userId, provider)) {
+        return c.json({ error: 'Un compte de ce provider est déjà lié', code: 'provider_already_linked' }, 409)
+    }
+
+    const state = generateState()
+    const codeVerifier = provider === 'google' ? generateCodeVerifier() : undefined
+    saveLinkState(state, { userId, provider, codeVerifier })
+
+    return c.json({ url: buildAuthorizationUrl(provider, state, codeVerifier).toString() })
+})
+
+// DELETE /users/me/oauth/:provider — dissocier un provider (refusé si c'est le dernier moyen de connexion)
+userRoute.delete('/me/oauth/:provider', async (c) => {
+    const userId = c.get('userId') as number
+    const provider = c.req.param('provider')
+
+    if (!isOAuthProvider(provider)) return c.json({ error: 'Provider inconnu' }, 404)
+
+    const result = await unlinkOAuthAccount(userId, provider)
+
+    if (result === 'not_linked') {
+        return c.json({ error: "Ce provider n'est pas lié à votre compte", code: 'not_linked' }, 404)
+    }
+    if (result === 'last_login_method') {
+        return c.json({
+            error: "Impossible : c'est votre seul moyen de connexion. Définissez d'abord un mot de passe (« Mot de passe oublié ») ou liez un autre compte.",
+            code: 'last_login_method',
+        }, 409)
+    }
+    return c.json({ message: 'Compte dissocié avec succès' })
 })
 
 // GET /users/check-username?username=xxx

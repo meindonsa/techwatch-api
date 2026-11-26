@@ -19,6 +19,7 @@ const users = vi.hoisted(() => ({
 }))
 const accounts = vi.hoisted(() => ({
     findOAuthAccount: vi.fn(),
+    findOAuthAccountByUser: vi.fn(),
     linkOAuthAccount: vi.fn(),
 }))
 const refresh = vi.hoisted(() => ({ createRefreshToken: vi.fn() }))
@@ -194,13 +195,18 @@ describe('fetchProfile (GitHub)', () => {
         })
     })
 
-    it('refuse un compte sans aucun email vérifié', async () => {
+    it('sans email vérifié : profil marqué non vérifié (liaison possible, connexion refusée)', async () => {
         fetchMock
             .mockResolvedValueOnce(json({ access_token: 'tok' }))
             .mockResolvedValueOnce(json({ id: 42, login: 'bor' }))
             .mockResolvedValueOnce(json([{ email: 'x@example.com', primary: true, verified: false }]))
 
-        await expect(fetchProfile('github', 'code')).rejects.toMatchObject({ code: 'email_not_verified' })
+        const p = await fetchProfile('github', 'code')
+
+        expect(p).toMatchObject({ providerUserId: '42', email: '', emailVerified: false })
+
+        accounts.findOAuthAccount.mockResolvedValue(undefined)
+        await expect(resolveOAuthUser(p)).rejects.toMatchObject({ code: 'email_not_verified' })
     })
 
     it('signale une erreur provider quand GitHub refuse le code (réponse 200 avec error)', async () => {

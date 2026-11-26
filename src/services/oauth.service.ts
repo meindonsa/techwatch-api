@@ -181,15 +181,13 @@ async function fetchGithubProfile(code: string): Promise<OAuthProfile> {
     const fallback = emails.find((e: any) => e.verified === true)
     const chosen = primary ?? fallback
 
-    if (!chosen) {
-        throw new OAuthError('email_not_verified', 'Aucun email vérifié sur le compte GitHub')
-    }
-
+    // Sans email vérifié, le profil reste valide pour une LIAISON (seul l'id compte) ;
+    // la connexion / création de compte refuse via `emailVerified: false`.
     return {
         provider: 'github',
         providerUserId: String(user.id),
-        email: String(chosen.email).toLowerCase(),
-        emailVerified: true,
+        email: chosen ? String(chosen.email).toLowerCase() : '',
+        emailVerified: Boolean(chosen),
         name: typeof user.name === 'string' && user.name ? user.name : String(user.login ?? ''),
     }
 }
