@@ -15,6 +15,8 @@ export type OAuthErrorCode =
     | 'access_denied'
     | 'email_not_verified'
     | 'email_exists'
+    | 'already_linked'
+    | 'provider_already_linked'
     | 'provider_error'
 
 export class OAuthError extends Error {
