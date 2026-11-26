@@ -14,9 +14,24 @@ CREATE TABLE IF NOT EXISTS users (
     username TEXT NOT NULL UNIQUE,
     email TEXT NOT NULL UNIQUE,
     full_name TEXT NOT NULL DEFAULT '',
-    password TEXT NOT NULL,
+    password TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Comptes créés via Google/GitHub : pas de mot de passe
+ALTER TABLE users ALTER COLUMN password DROP NOT NULL;
+
+CREATE TABLE IF NOT EXISTS oauth_accounts (
+    id BIGSERIAL PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    provider TEXT NOT NULL CHECK (provider IN ('google', 'github')),
+    provider_user_id TEXT NOT NULL,
+    email TEXT,
+    created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (provider, provider_user_id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS oauth_accounts_user_provider_uidx ON oauth_accounts (user_id, provider);
+CREATE INDEX IF NOT EXISTS oauth_accounts_user_id_idx ON oauth_accounts (user_id);
 
 CREATE TABLE IF NOT EXISTS refresh_tokens (
     id SERIAL PRIMARY KEY,
